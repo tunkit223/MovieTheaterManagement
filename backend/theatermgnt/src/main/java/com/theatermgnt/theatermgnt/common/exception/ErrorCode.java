@@ -45,6 +45,11 @@ public enum ErrorCode {
     COMBO_NOT_EXISTED(2012, "Seat not existed", HttpStatus.BAD_REQUEST),
     COMBO_ITEM_EXISTED(2011, "Seat existed", HttpStatus.BAD_REQUEST),
     COMBO_ITEM_NOT_EXISTED(2012, "Seat not existed", HttpStatus.BAD_REQUEST),
+    WORK_SCHEDULE_NOT_FOUND(2013, "Work schedule not found", HttpStatus.BAD_REQUEST),
+    SHIFT_NOT_FOUND(2014,"Shift not found", HttpStatus.BAD_REQUEST),
+    WORK_SCHEDULE_EXISTS(2015,"Work schedule already exists", HttpStatus.BAD_REQUEST),
+    STAFF_NOT_FOUND(2016,"Staff not found", HttpStatus.BAD_REQUEST),
+    UNAUTHORIZED_CINEMA_STAFF(2017,"Unauthorized cinema staff", HttpStatus.BAD_REQUEST),
 
     //----
     CANNOT_SEND_EMAIL(3001, "Cannot send email", HttpStatus.BAD_REQUEST),
