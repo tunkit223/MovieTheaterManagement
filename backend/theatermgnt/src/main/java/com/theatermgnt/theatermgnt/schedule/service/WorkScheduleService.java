@@ -2,7 +2,7 @@ package com.theatermgnt.theatermgnt.schedule.service;
 
 import com.theatermgnt.theatermgnt.schedule.dto.request.CreateWorkScheduleRequest;
 import com.theatermgnt.theatermgnt.schedule.dto.response.WorkScheduleResponse;
-import com.theatermgnt.theatermgnt.schedule.entity.WorkSchedule;
+
 
 import java.time.LocalDate;
 import java.util.List;
