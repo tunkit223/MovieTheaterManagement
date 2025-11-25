@@ -9,9 +9,9 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class SeatResponse {
-     String id;
-     String rowChair;
-     Integer seatNumber;
-     String roomName;
-     String seatTypeName;
+    String id;
+    String rowChair;
+    Integer seatNumber;
+    String roomName;
+    String seatTypeName;
 }

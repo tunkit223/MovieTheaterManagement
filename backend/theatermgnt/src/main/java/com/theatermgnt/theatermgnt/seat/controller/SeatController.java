@@ -1,18 +1,21 @@
 package com.theatermgnt.theatermgnt.seat.controller;
 
+import java.util.List;
+
+import jakarta.validation.Valid;
+
+import org.springframework.web.bind.annotation.*;
+
 import com.theatermgnt.theatermgnt.common.dto.response.ApiResponse;
 import com.theatermgnt.theatermgnt.seat.dto.request.SeatCreationRequest;
 import com.theatermgnt.theatermgnt.seat.dto.request.SeatUpdateRequest;
 import com.theatermgnt.theatermgnt.seat.dto.response.SeatResponse;
 import com.theatermgnt.theatermgnt.seat.service.SeatService;
-import jakarta.validation.Valid;
+
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/seats")
@@ -51,8 +54,7 @@ public class SeatController {
     }
 
     @PutMapping("/{seatId}")
-    ApiResponse<SeatResponse> updateSeat(@PathVariable String seatId,
-                                         @RequestBody @Valid SeatUpdateRequest request) {
+    ApiResponse<SeatResponse> updateSeat(@PathVariable String seatId, @RequestBody @Valid SeatUpdateRequest request) {
         return ApiResponse.<SeatResponse>builder()
                 .result(seatService.updateSeat(seatId, request))
                 .build();
@@ -61,8 +63,6 @@ public class SeatController {
     @DeleteMapping("/{seatId}")
     ApiResponse<String> deleteSeat(@PathVariable String seatId) {
         seatService.deleteSeat(seatId);
-        return ApiResponse.<String>builder()
-                .result("Delete seat successfully")
-                .build();
+        return ApiResponse.<String>builder().result("Delete seat successfully").build();
     }
 }

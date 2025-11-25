@@ -1,6 +1,7 @@
 package com.theatermgnt.theatermgnt.room.dto.response;
 
 import com.theatermgnt.theatermgnt.common.enums.RoomType;
+
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -10,9 +11,9 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RoomResponse {
-     String id;
-     String name;
-     RoomType roomType;
-     Integer totalSeats;
-     String cinemaName;
+    String id;
+    String name;
+    RoomType roomType;
+    Integer totalSeats;
+    String cinemaName;
 }

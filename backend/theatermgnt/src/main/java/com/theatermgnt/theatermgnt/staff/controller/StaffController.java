@@ -1,19 +1,22 @@
 package com.theatermgnt.theatermgnt.staff.controller;
 
+import java.util.List;
+
+import jakarta.validation.Valid;
+
+import org.springframework.web.bind.annotation.*;
+
+import com.theatermgnt.theatermgnt.account.service.RegistrationService;
 import com.theatermgnt.theatermgnt.common.dto.response.ApiResponse;
 import com.theatermgnt.theatermgnt.staff.dto.request.StaffAccountCreationRequest;
 import com.theatermgnt.theatermgnt.staff.dto.request.StaffProfileUpdateRequest;
 import com.theatermgnt.theatermgnt.staff.dto.response.StaffResponse;
-import com.theatermgnt.theatermgnt.account.service.RegistrationService;
 import com.theatermgnt.theatermgnt.staff.service.StaffService;
-import jakarta.validation.Valid;
+
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RequestMapping("/staffs")
 @RestController
@@ -52,8 +55,6 @@ public class StaffController {
                 .build();
     }
 
-
-
     @PutMapping("/{staffId}")
     public ApiResponse<StaffResponse> updateStaffProfile(
             @PathVariable String staffId, @RequestBody StaffProfileUpdateRequest request) {
@@ -61,6 +62,7 @@ public class StaffController {
                 .result(staffService.updateStaffProfile(staffId, request))
                 .build();
     }
+
     @DeleteMapping("/{staffId}")
     public ApiResponse<Void> deleteStaff(@PathVariable String staffId) {
         staffService.deleteStaff(staffId);
