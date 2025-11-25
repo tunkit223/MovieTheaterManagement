@@ -13,7 +13,7 @@ public interface WorkScheduleService {
 
     List<WorkScheduleResponse> getSchedules(String cinemaId, LocalDate from, LocalDate to);
 
-    void deleteSchedule(String id);
+    void deleteSchedule(String cinemaId, String id);
 }
 
 

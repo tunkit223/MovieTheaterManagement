@@ -1,13 +1,13 @@
 package com.theatermgnt.theatermgnt.schedule.service;
 
+import com.theatermgnt.theatermgnt.ShiftType.repository.ShiftTypeRepository;
 import com.theatermgnt.theatermgnt.common.exception.AppException;
 import com.theatermgnt.theatermgnt.common.exception.ErrorCode;
 import com.theatermgnt.theatermgnt.schedule.dto.request.CreateWorkScheduleRequest;
 import com.theatermgnt.theatermgnt.schedule.dto.response.WorkScheduleResponse;
-import com.theatermgnt.theatermgnt.schedule.entity.ShiftType;
+import com.theatermgnt.theatermgnt.ShiftType.entity.ShiftType;
 import com.theatermgnt.theatermgnt.schedule.entity.WorkSchedule;
 import com.theatermgnt.theatermgnt.schedule.mapper.WorkScheduleMapper;
-import com.theatermgnt.theatermgnt.schedule.repository.ShiftTypeRepository;
 import com.theatermgnt.theatermgnt.schedule.repository.WorkScheduleRepository;
 import com.theatermgnt.theatermgnt.staff.repository.StaffRepository;
 import jakarta.transaction.Transactional;
@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -67,7 +66,6 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
                     .orElseThrow(() -> new AppException(ErrorCode.SHIFT_NOT_FOUND));
 
             WorkSchedule ws = new WorkSchedule(
-                    UUID.randomUUID().toString(),
                     req.getUserId(),
                     cinemaId,
                     shift,
@@ -88,8 +86,8 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
 
     @Override
     @Transactional
-    public void deleteSchedule(String id) {
-        WorkSchedule ws = workScheduleRepository.findById(id)
+    public void deleteSchedule(String cinemaId, String id) {
+        WorkSchedule ws = workScheduleRepository.findByIdAndCinemaId(id, cinemaId)
                 .orElseThrow(() -> new AppException(ErrorCode.WORK_SCHEDULE_NOT_FOUND));
 
         workScheduleRepository.delete(ws);

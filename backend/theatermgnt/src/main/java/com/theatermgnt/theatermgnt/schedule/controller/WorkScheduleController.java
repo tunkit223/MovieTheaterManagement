@@ -17,7 +17,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("/schedules")
+@RequestMapping("cinemas/{cinemaId}/schedules")
 @RequiredArgsConstructor
 @Builder
 @Slf4j
@@ -28,7 +28,7 @@ public class WorkScheduleController {
 
     @GetMapping
     public ApiResponse<List<WorkScheduleResponse>> getSchedules(
-            @RequestParam String cinemaId,
+            @PathVariable String cinemaId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate from,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate to) {
 
@@ -39,7 +39,7 @@ public class WorkScheduleController {
 
     @PostMapping("/public")
     public ApiResponse<List<WorkScheduleResponse>> publicSchedules(
-            @RequestParam String cinemaId,
+            @PathVariable String cinemaId,
             @Valid @RequestBody List<CreateWorkScheduleRequest> request) {
 
         return ApiResponse.<List<WorkScheduleResponse>>builder()
@@ -48,8 +48,10 @@ public class WorkScheduleController {
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<String> deleteSchedule(@PathVariable String id) {
-        scheduleService.deleteSchedule(id);
+    public ApiResponse<String> deleteSchedule(
+            @PathVariable String cinemaId,
+            @PathVariable String id) {
+        scheduleService.deleteSchedule(cinemaId,id);
         return ApiResponse.<String>builder()
                 .result(STR."Delete schedule id: \{id} successfully")
                 .build();

@@ -1,5 +1,7 @@
 package com.theatermgnt.theatermgnt.schedule.entity;
 
+import com.theatermgnt.theatermgnt.ShiftType.entity.ShiftType;
+import com.theatermgnt.theatermgnt.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -18,10 +20,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class WorkSchedule {
-
-    @Id
-    String id;
+public class WorkSchedule extends BaseEntity {
 
     @Column(name = "user_id", nullable = false)
     String userId;

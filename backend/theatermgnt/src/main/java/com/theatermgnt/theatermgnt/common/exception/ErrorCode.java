@@ -50,6 +50,9 @@ public enum ErrorCode {
     WORK_SCHEDULE_EXISTS(2015,"Work schedule already exists", HttpStatus.BAD_REQUEST),
     STAFF_NOT_FOUND(2016,"Staff not found", HttpStatus.BAD_REQUEST),
     UNAUTHORIZED_CINEMA_STAFF(2017,"Unauthorized cinema staff", HttpStatus.BAD_REQUEST),
+    SHIFT_TYPE_EXISTS(2018,"Shift type existed", HttpStatus.BAD_REQUEST),
+    SHIFT_TYPE_NOT_FOUND(2019,"Shift type  not found", HttpStatus.BAD_REQUEST),
+    INVALID_SHIFT_TIME_RANGE(2020,"Invalid shift time range", HttpStatus.BAD_REQUEST),
 
     //----
     CANNOT_SEND_EMAIL(3001, "Cannot send email", HttpStatus.BAD_REQUEST),
