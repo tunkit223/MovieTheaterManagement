@@ -3,29 +3,40 @@ package com.theatermgnt.theatermgnt.schedule.mapper;
 import com.theatermgnt.theatermgnt.schedule.dto.response.WorkScheduleResponse;
 import com.theatermgnt.theatermgnt.schedule.entity.WorkSchedule;
 import com.theatermgnt.theatermgnt.staff.repository.StaffRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
-
 @Component
-@RequiredArgsConstructor
 public class WorkScheduleMapperDecorator implements WorkScheduleMapper {
 
     private final WorkScheduleMapper delegate;
-    private final StaffRepository staffRepository;
+    private StaffRepository staffRepository;
+
+    @Autowired
+    public WorkScheduleMapperDecorator(
+            @Qualifier("delegate") WorkScheduleMapper delegate,
+            StaffRepository staffRepository
+    ) {
+        this.delegate = delegate;
+        this.staffRepository = staffRepository;
+    }
 
     @Override
     public WorkScheduleResponse toResponse(WorkSchedule ws) {
 
         WorkScheduleResponse response = delegate.toResponse(ws);
 
-        staffRepository.findById(ws.getUserId())
-                .ifPresent(user -> {
-                    String fullName = user.getLastName() + " " + user.getFirstName();
-                    response.setUserName(fullName);
-                });
+        if (staffRepository != null) {
+            staffRepository.findById(ws.getUserId())
+                    .ifPresent(user -> {
+                        String fullName = user.getLastName() + " " + user.getFirstName();
+                        response.setUserName(fullName);
+                    });
+        }
 
         return response;
     }
 }
+
 
