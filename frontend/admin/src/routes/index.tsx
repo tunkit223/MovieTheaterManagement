@@ -16,6 +16,7 @@ import { BookingList } from "@/pages/Bookings";
 import { ComboList } from "@/pages/Combos";
 import { InvoiceList } from "@/pages/Invoices";
 import { ReportList } from "@/pages/Reports";
+import { WorkSchedulePage, ShiftTypesPage } from "@/pages/WorkSchedules";
 import { Forbidden } from "@/pages/Forbidden";
 import { NotFound } from "@/pages/NotFound";
 import { PERMISSIONS } from "@/constants/permissions";
@@ -152,6 +153,34 @@ export const routes = [
               {
                 index: true,
                 element: <StaffList />,
+              },
+            ],
+          },
+          {
+            path: `${ROUTES.WORK_SCHEDULES}`,
+            element: (
+              <ProtectedRoute
+                requiredPermissions={[PERMISSIONS.WORK_SCHEDULE_READ]}
+              />
+            ),
+            children: [
+              {
+                index: true,
+                element: <WorkSchedulePage />,
+              },
+            ],
+          },
+          {
+            path: `${ROUTES.SHIFT_TYPES}`,
+            element: (
+              <ProtectedRoute
+                requiredPermissions={[PERMISSIONS.WORK_SCHEDULE_READ]}
+              />
+            ),
+            children: [
+              {
+                index: true,
+                element: <ShiftTypesPage />,
               },
             ],
           },

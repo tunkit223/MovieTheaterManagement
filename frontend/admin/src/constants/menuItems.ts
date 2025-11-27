@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Receipt,
   BarChart3,
+  CalendarClock,
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { PERMISSIONS } from "@/constants/permissions";
@@ -21,7 +22,8 @@ export interface MenuItem {
   id: string;
   label: string;
   icon: LucideIcon;
-  path: string;
+  path?: string;
+  children?: MenuItem[];
   requiredPermissions?: PermissionType[];
 }
 
@@ -59,6 +61,27 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: UserCog,
     path: ROUTES.STAFF,
     requiredPermissions: [PERMISSIONS.STAFF_READ],
+  },
+  {
+    id: "work",
+    label: "Lich lam viec",
+    icon: CalendarClock,
+    children: [
+      {
+        id: "work-schedules",
+        label: "Lich lam",
+        icon: CalendarClock,
+        path: ROUTES.WORK_SCHEDULES,
+        requiredPermissions: [PERMISSIONS.WORK_SCHEDULE_READ],
+      },
+      {
+        id: "shift-types",
+        label: "Ca lam",
+        icon: CalendarClock,
+        path: ROUTES.SHIFT_TYPES,
+        requiredPermissions: [PERMISSIONS.WORK_SCHEDULE_CREATE],
+      },
+    ],
   },
   {
     id: "showtimes",
