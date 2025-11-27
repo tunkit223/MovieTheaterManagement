@@ -53,6 +53,7 @@ public enum ErrorCode {
     SHIFT_TYPE_EXISTS(2018,"Shift type existed", HttpStatus.BAD_REQUEST),
     SHIFT_TYPE_NOT_FOUND(2019,"Shift type  not found", HttpStatus.BAD_REQUEST),
     INVALID_SHIFT_TIME_RANGE(2020,"Invalid shift time range", HttpStatus.BAD_REQUEST),
+    SHIFT_OVERLAP(2021,"Shift time overlap with existing shift", HttpStatus.BAD_REQUEST),
 
     //----
     CANNOT_SEND_EMAIL(3001, "Cannot send email", HttpStatus.BAD_REQUEST),
