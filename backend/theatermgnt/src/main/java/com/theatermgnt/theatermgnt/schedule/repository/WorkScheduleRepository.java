@@ -20,6 +20,7 @@ public interface WorkScheduleRepository extends JpaRepository<WorkSchedule, Stri
             LocalDate workDate,
             String shiftTypeId);
     List<WorkSchedule> findAllByCinemaIdAndShiftTypeIdAndWorkDate(String cinemaId, String shiftTypeId, LocalDate workDate);
+    List<WorkSchedule> findAllByWorkDate(LocalDate workDate);
 }
 
 

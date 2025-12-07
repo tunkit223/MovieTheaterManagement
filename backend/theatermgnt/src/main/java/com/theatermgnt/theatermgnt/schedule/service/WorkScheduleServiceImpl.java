@@ -50,6 +50,7 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
 
         ShiftType shiftType = shiftTypeRepository.findById(req.getShiftTypeId())
                 .orElseThrow(() -> new AppException(ErrorCode.SHIFT_NOT_FOUND));
+        validateNoOverlap(req.getWorkDate(), shiftType);
         List<WorkSchedule> created = new ArrayList<>();
 
         for (String userId : req.getUserIds()) {
@@ -107,6 +108,7 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
                 .orElseThrow(() -> new AppException(ErrorCode.SHIFT_NOT_FOUND)) : schedules.getFirst().getShiftType();
 
         LocalDate newWorkDate = (req.getWorkDate()!=null) ? req.getWorkDate() : schedules.getFirst().getWorkDate();
+        validateNoOverlap(newWorkDate, newShift);
 
         schedules.forEach(s -> {
             s.setWorkDate(newWorkDate);
@@ -161,6 +163,25 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
 
         workScheduleRepository.delete(schedule);
     }
+    private void validateNoOverlap(LocalDate date, ShiftType newShift) {
+
+        List<WorkSchedule> schedules =
+                workScheduleRepository.findAllByWorkDate(date);
+
+        for (WorkSchedule ws : schedules) {
+            ShiftType oldShift = ws.getShiftType();
+            if(!newShift.getStartTime().equals(oldShift.getStartTime()) && !newShift.getEndTime().equals(oldShift.getEndTime())){
+                boolean overlap =
+                        newShift.getStartTime().isBefore(oldShift.getEndTime()) &&
+                                newShift.getEndTime().isAfter(oldShift.getStartTime());
+
+                if (overlap) {
+                    throw new AppException(ErrorCode.SHIFT_OVERLAP);
+                }
+            }
+        }
+    }
+
 }
 
 
