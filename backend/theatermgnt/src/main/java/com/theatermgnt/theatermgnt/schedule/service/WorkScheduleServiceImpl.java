@@ -4,6 +4,7 @@ import com.theatermgnt.theatermgnt.ShiftType.repository.ShiftTypeRepository;
 import com.theatermgnt.theatermgnt.common.exception.AppException;
 import com.theatermgnt.theatermgnt.common.exception.ErrorCode;
 import com.theatermgnt.theatermgnt.schedule.dto.request.CreateWorkScheduleRequest;
+import com.theatermgnt.theatermgnt.schedule.dto.request.UpdateWorkScheduleRequest;
 import com.theatermgnt.theatermgnt.schedule.dto.response.WorkScheduleResponse;
 import com.theatermgnt.theatermgnt.ShiftType.entity.ShiftType;
 import com.theatermgnt.theatermgnt.schedule.entity.WorkSchedule;
@@ -38,22 +39,83 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
     @Transactional
     public List<WorkScheduleResponse> createSchedules(
             String cinemaId,
-            List<CreateWorkScheduleRequest> list) {
+            CreateWorkScheduleRequest req) {
 
-        List<WorkScheduleResponse> result = new ArrayList<>();
+        if(req.getWorkDate() == null || req.getShiftTypeId() == null || req.getUserIds() == null){
+            throw new AppException(ErrorCode.INVALID_WORK_SCHEDULE_REQUEST);
+        }
+        if(req.getWorkDate().isBefore(LocalDate.now())){
+            throw new AppException(ErrorCode.INVALID_WORK_DATE);
+        }
 
-        for (CreateWorkScheduleRequest req : list) {
+        ShiftType shiftType = shiftTypeRepository.findById(req.getShiftTypeId())
+                .orElseThrow(() -> new AppException(ErrorCode.SHIFT_NOT_FOUND));
+        List<WorkSchedule> created = new ArrayList<>();
 
-            var staff = staffRepository.findById(req.getUserId())
-                    .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND));
+        for (String userId : req.getUserIds()) {
 
-            if (!staff.getCinemaId().equals(cinemaId)) {
-                throw new AppException(ErrorCode.UNAUTHORIZED_CINEMA_STAFF);
+            // Check duplicate
+            boolean exists = workScheduleRepository.existsByUserIdAndWorkDateAndShiftTypeId(
+                    userId, req.getWorkDate(), req.getShiftTypeId()
+            );
+
+            if (exists) {
+                throw new AppException(ErrorCode.WORK_SCHEDULE_EXISTS);
             }
 
+            WorkSchedule ws = new WorkSchedule();
+            ws.setCinemaId(cinemaId);
+            ws.setUserId(userId);
+            ws.setWorkDate(req.getWorkDate());
+            ws.setShiftType(shiftType);
+
+            created.add(ws);
+        }
+        workScheduleRepository.saveAll(created);
+
+        return created.stream()
+                .map(mapper::toResponse)
+                .toList();
+
+    }
+
+    @Transactional
+    public List<WorkScheduleResponse> updateSchedules(
+            String cinemaId,
+            String shiftTypeId,
+            LocalDate workDate,
+            UpdateWorkScheduleRequest req) {
+
+        if(req.getShiftTypeId() == null && req.getWorkDate() == null){
+            throw new AppException(ErrorCode.NOTHING_TO_UPDATE);
+        }
+
+        // Ngày làm chỉnh sửa không được trước ngày hiện tại
+        if (req.getWorkDate() != null && req.getWorkDate().isBefore(LocalDate.now())) {
+            throw new AppException(ErrorCode.INVALID_WORK_DATE);
+        }
+
+        // Tìm schedule đang tồn tại
+        List<WorkSchedule> schedules =
+                workScheduleRepository.findAllByCinemaIdAndShiftTypeIdAndWorkDate(
+                        cinemaId, shiftTypeId, workDate);
+        if (schedules.isEmpty()) {
+            throw new AppException(ErrorCode.WORK_SCHEDULE_NOT_FOUND);
+        }
+
+        ShiftType newShift = (req.getShiftTypeId()!=null) ? shiftTypeRepository.findById(req.getShiftTypeId())
+                .orElseThrow(() -> new AppException(ErrorCode.SHIFT_NOT_FOUND)) : schedules.getFirst().getShiftType();
+
+        LocalDate newWorkDate = (req.getWorkDate()!=null) ? req.getWorkDate() : schedules.getFirst().getWorkDate();
+
+        schedules.forEach(s -> {
+            s.setWorkDate(newWorkDate);
+            s.setShiftType(newShift);
+
+            // kiểm tra trùng lịch
             boolean exists = workScheduleRepository
-                    .existsByUserIdAndWorkDateAndShiftType_Id(
-                            req.getUserId(),
+                    .existsByUserIdAndWorkDateAndShiftTypeId(
+                            s.getUserId(),
                             req.getWorkDate(),
                             req.getShiftTypeId()
                     );
@@ -61,22 +123,14 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
             if (exists) {
                 throw new AppException(ErrorCode.WORK_SCHEDULE_EXISTS);
             }
+        });
 
-            ShiftType shift = shiftTypeRepository.findById(req.getShiftTypeId())
-                    .orElseThrow(() -> new AppException(ErrorCode.SHIFT_NOT_FOUND));
-
-            WorkSchedule ws = new WorkSchedule(
-                    req.getUserId(),
-                    cinemaId,
-                    shift,
-                    req.getWorkDate()
-            );
-
-            WorkSchedule saved = workScheduleRepository.save(ws);
-            result.add(mapper.toResponse(saved));
-        }
-        return result;
+        workScheduleRepository.saveAll(schedules);
+        return schedules.stream()
+                .map(mapper::toResponse)
+                .toList();
     }
+
 
     @Override
     public List<WorkScheduleResponse> getSchedules(String cinemaId, LocalDate from, LocalDate to) {
@@ -86,11 +140,26 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
 
     @Override
     @Transactional
-    public void deleteSchedule(String cinemaId, String id) {
-        WorkSchedule ws = workScheduleRepository.findByIdAndCinemaId(id, cinemaId)
+    public void deleteSchedules(String cinemaId, String shiftTypeId, LocalDate date) {
+        List<WorkSchedule> schedules = workScheduleRepository
+                .findAllByCinemaIdAndShiftTypeIdAndWorkDate(cinemaId, shiftTypeId, date);
+        if (schedules.isEmpty()) {
+            throw new AppException(ErrorCode.WORK_SCHEDULE_NOT_FOUND);
+        }
+        workScheduleRepository.deleteAll(schedules);
+    }
+
+    @Override
+    @Transactional
+    public void deleteSchedule(String cinemaId, String scheduleId) {
+        WorkSchedule schedule = workScheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new AppException(ErrorCode.WORK_SCHEDULE_NOT_FOUND));
 
-        workScheduleRepository.delete(ws);
+        if (!schedule.getCinemaId().equals(cinemaId)) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_CINEMA_STAFF);
+        }
+
+        workScheduleRepository.delete(schedule);
     }
 }
 

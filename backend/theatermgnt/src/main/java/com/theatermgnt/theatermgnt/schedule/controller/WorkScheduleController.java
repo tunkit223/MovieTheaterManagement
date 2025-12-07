@@ -2,6 +2,7 @@ package com.theatermgnt.theatermgnt.schedule.controller;
 
 import com.theatermgnt.theatermgnt.common.dto.response.ApiResponse;
 import com.theatermgnt.theatermgnt.schedule.dto.request.CreateWorkScheduleRequest;
+import com.theatermgnt.theatermgnt.schedule.dto.request.UpdateWorkScheduleRequest;
 import com.theatermgnt.theatermgnt.schedule.dto.response.WorkScheduleResponse;
 import com.theatermgnt.theatermgnt.schedule.service.WorkScheduleService;
 import jakarta.validation.Valid;
@@ -37,25 +38,54 @@ public class WorkScheduleController {
                 .build();
     }
 
-    @PostMapping("/public")
-    public ApiResponse<List<WorkScheduleResponse>> publicSchedules(
+    @PutMapping("/shifts/{shiftTypeId}/date/{workDate}")
+    public ApiResponse<List<WorkScheduleResponse>> updateShiftInstance(
             @PathVariable String cinemaId,
-            @Valid @RequestBody List<CreateWorkScheduleRequest> request) {
+            @PathVariable String shiftTypeId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate workDate,
+            @Valid @RequestBody UpdateWorkScheduleRequest request
+    ) {
+        var result = scheduleService.updateSchedules(cinemaId, shiftTypeId, workDate, request);
+
+        return ApiResponse.<List<WorkScheduleResponse>>builder()
+                .result(result)
+                .build();
+    }
+
+
+    @PostMapping
+    public ApiResponse<List<WorkScheduleResponse>> createSchedules(
+            @PathVariable String cinemaId,
+            @Valid @RequestBody CreateWorkScheduleRequest request) {
 
         return ApiResponse.<List<WorkScheduleResponse>>builder()
                 .result(scheduleService.createSchedules(cinemaId, request))
                 .build();
     }
 
-    @DeleteMapping("/{id}")
-    public ApiResponse<String> deleteSchedule(
+    @DeleteMapping("/shifts/{shiftTypeId}/date/{workDate}")
+    public ApiResponse<String> deleteWorkSchedules(
             @PathVariable String cinemaId,
-            @PathVariable String id) {
-        scheduleService.deleteSchedule(cinemaId,id);
+            @PathVariable String shiftTypeId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate workDate) {
+        scheduleService.deleteSchedules(cinemaId, shiftTypeId, workDate);
         return ApiResponse.<String>builder()
-                .result(STR."Delete schedule id: \{id} successfully")
+                .result("Deleted entire shift instance")
                 .build();
     }
+
+    @DeleteMapping("/{scheduleId}")
+    public ApiResponse<String> deleteSchedule(
+            @PathVariable String cinemaId,
+            @PathVariable String scheduleId) {
+
+        scheduleService.deleteSchedule(cinemaId, scheduleId);
+
+        return ApiResponse.<String>builder()
+                .result("Deleted schedule: " + scheduleId)
+                .build();
+    }
+
 }
 
 

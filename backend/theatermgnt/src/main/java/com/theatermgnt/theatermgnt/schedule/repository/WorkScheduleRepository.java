@@ -15,6 +15,11 @@ public interface WorkScheduleRepository extends JpaRepository<WorkSchedule, Stri
 
     boolean existsByUserIdAndWorkDateAndShiftType_Id(
             String userId, LocalDate workDate, String shiftTypeId);
+    boolean existsByUserIdAndWorkDateAndShiftTypeId(
+            String userId,
+            LocalDate workDate,
+            String shiftTypeId);
+    List<WorkSchedule> findAllByCinemaIdAndShiftTypeIdAndWorkDate(String cinemaId, String shiftTypeId, LocalDate workDate);
 }
 
 
