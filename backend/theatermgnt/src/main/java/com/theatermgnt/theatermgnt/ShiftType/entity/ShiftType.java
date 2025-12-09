@@ -26,7 +26,4 @@ public class ShiftType extends BaseEntity {
 
     @Column(name = "end_time", nullable = false)
     LocalTime endTime;
-
-    @Column(name = "is_active", nullable = false)
-    Boolean isActive = true;
 }

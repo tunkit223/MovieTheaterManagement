@@ -16,18 +16,4 @@ public interface ShiftTypeRepository extends JpaRepository<ShiftType, String> {
     Optional<ShiftType> findByIdAndCinemaId(String id, String cinemaId);
 
     boolean existsByCinemaIdAndNameIgnoreCase(String cinemaId, String name);
-    @Query("""
-    SELECT s FROM ShiftType s
-    WHERE s.cinemaId = :cinemaId
-      AND s.isActive = true
-      AND (
-            (:start < s.endTime AND :end > s.startTime)
-          )
-""")
-    List<ShiftType> findOverlappingShifts(
-            @Param("cinemaId") String cinemaId,
-            @Param("start") LocalTime start,
-            @Param("end") LocalTime end
-    );
-
 }

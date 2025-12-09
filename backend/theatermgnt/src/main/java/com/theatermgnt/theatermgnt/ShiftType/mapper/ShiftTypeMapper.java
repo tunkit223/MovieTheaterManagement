@@ -10,7 +10,6 @@ import org.mapstruct.*;
 public interface ShiftTypeMapper {
 
     @Mapping(target = "cinemaId", ignore = true)
-    @Mapping(target = "isActive", constant = "true")
     ShiftType toEntity(CreateShiftTypeRequest request);
 
     ShiftTypeResponse toResponse(ShiftType entity);

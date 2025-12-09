@@ -11,19 +11,12 @@ export interface WorkScheduleResponse {
   workDate: string;
 }
 
-export interface CreateWorkSchedulePayload {
-  userId: string;
-  shiftTypeId: string;
-  workDate: string;
-}
-
 export interface ShiftTemplate {
   id: string;
   cinemaId: string;
   name: string;
   startTime: string;
   endTime: string;
-  isActive: boolean;
 }
 
 export interface CreateShiftTemplatePayload {
@@ -36,7 +29,6 @@ export interface UpdateShiftTemplatePayload {
   name?: string;
   startTime?: string;
   endTime?: string;
-  isActive?: boolean;
 }
 
 const cinemaPath = (cinemaId: string) => `/cinemas/${cinemaId}`;
@@ -50,15 +42,27 @@ export const workScheduleService = {
     return response.data?.result as WorkScheduleResponse[];
   },
 
-  async publishSchedules(
+  async createSchedules(cinemaId: string, payload: { userIds: string[]; shiftTypeId: string; workDate: string }) {
+    const response = await httpClient.post(`${cinemaPath(cinemaId)}/schedules`, payload);
+    return response.data?.result as WorkScheduleResponse[];
+  },
+
+  async updateShiftInstance(
     cinemaId: string,
-    payload: CreateWorkSchedulePayload[]
+    shiftTypeId: string,
+    workDate: string,
+    payload: { shiftTypeId?: string; workDate?: string }
   ) {
-    const response = await httpClient.post(
-      `${cinemaPath(cinemaId)}/schedules/public`,
+    const response = await httpClient.put(
+      `${cinemaPath(cinemaId)}/schedules/shifts/${shiftTypeId}/date/${workDate}`,
       payload
     );
     return response.data?.result as WorkScheduleResponse[];
+  },
+
+  async deleteShiftInstance(cinemaId: string, shiftTypeId: string, workDate: string) {
+    const response = await httpClient.delete(`${cinemaPath(cinemaId)}/schedules/shifts/${shiftTypeId}/date/${workDate}`);
+    return response.data?.result as string;
   },
 
   async deleteSchedule(cinemaId: string, scheduleId: string) {

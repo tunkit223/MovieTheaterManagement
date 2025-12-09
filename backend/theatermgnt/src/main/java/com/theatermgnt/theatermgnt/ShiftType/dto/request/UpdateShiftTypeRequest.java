@@ -17,5 +17,4 @@ public class UpdateShiftTypeRequest {
     String name;
     LocalTime startTime;
     LocalTime endTime;
-    Boolean isActive;
 }

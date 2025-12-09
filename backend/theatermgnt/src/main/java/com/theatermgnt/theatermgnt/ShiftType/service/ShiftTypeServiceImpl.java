@@ -35,16 +35,6 @@ public class ShiftTypeServiceImpl implements ShiftTypeService {
             throw new AppException(ErrorCode.SHIFT_TYPE_EXISTS);
         }
 
-        List<ShiftType> overlapped = repository.findOverlappingShifts(
-                cinemaId,
-                request.getStartTime(),
-                request.getEndTime()
-        );
-
-        if (!overlapped.isEmpty()) {
-            throw new AppException(ErrorCode.SHIFT_OVERLAP);
-        }
-
         ShiftType entity = mapper.toEntity(request);
         entity.setCinemaId(cinemaId);
 
@@ -78,22 +68,6 @@ public class ShiftTypeServiceImpl implements ShiftTypeService {
             LocalTime end = request.getEndTime() != null ? request.getEndTime() : entity.getEndTime();
             validateTimeRange(start, end);
         }
-        boolean isActive = request.getIsActive() != null ? request.getIsActive() : entity.getIsActive();
-        if(isActive) {
-            LocalTime newStart = request.getStartTime() != null ? request.getStartTime() : entity.getStartTime();
-            LocalTime newEnd = request.getEndTime() != null ? request.getEndTime() : entity.getEndTime();
-
-            List<ShiftType> overlapped = repository.findOverlappingShifts(
-                    cinemaId,
-                    newStart,
-                    newEnd
-            );
-            overlapped.removeIf(shift -> shift.getId().equals(shiftId));
-
-            if (!overlapped.isEmpty()) {
-                throw new AppException(ErrorCode.SHIFT_OVERLAP);
-            }
-        }
         mapper.update(entity, request);
         return mapper.toResponse(repository.save(entity));
     }
@@ -106,7 +80,6 @@ public class ShiftTypeServiceImpl implements ShiftTypeService {
 
         // Soft delete
         entity.setDeleted(true);
-        entity.setIsActive(false);
         repository.save(entity);
     }
 

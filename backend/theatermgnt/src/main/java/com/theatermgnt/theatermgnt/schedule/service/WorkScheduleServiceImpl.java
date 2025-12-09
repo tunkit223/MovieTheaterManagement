@@ -55,6 +55,12 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
 
         for (String userId : req.getUserIds()) {
 
+            var staff = staffRepository.findById(userId)
+                    .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND));
+            if (!staff.getCinemaId().equals(cinemaId)) {
+                throw new AppException(ErrorCode.UNAUTHORIZED_CINEMA_STAFF);
+            }
+
             // Check duplicate
             boolean exists = workScheduleRepository.existsByUserIdAndWorkDateAndShiftTypeId(
                     userId, req.getWorkDate(), req.getShiftTypeId()
@@ -100,6 +106,11 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
         List<WorkSchedule> schedules =
                 workScheduleRepository.findAllByCinemaIdAndShiftTypeIdAndWorkDate(
                         cinemaId, shiftTypeId, workDate);
+
+        if (!schedules.getFirst().getCinemaId().equals(cinemaId)) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_CINEMA_STAFF);
+        }
+
         if (schedules.isEmpty()) {
             throw new AppException(ErrorCode.WORK_SCHEDULE_NOT_FOUND);
         }
@@ -145,6 +156,9 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
     public void deleteSchedules(String cinemaId, String shiftTypeId, LocalDate date) {
         List<WorkSchedule> schedules = workScheduleRepository
                 .findAllByCinemaIdAndShiftTypeIdAndWorkDate(cinemaId, shiftTypeId, date);
+        if (!schedules.getFirst().getCinemaId().equals(cinemaId)) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_CINEMA_STAFF);
+        }
         if (schedules.isEmpty()) {
             throw new AppException(ErrorCode.WORK_SCHEDULE_NOT_FOUND);
         }
