@@ -24,13 +24,6 @@ type FormState = {
   endTime: string;
 };
 
-const IS_MOCK_MODE = true; // Doi thanh false khi ket noi backend
-const MOCK_SHIFT_TYPES: ShiftTemplate[] = [
-  { id: "morning", cinemaId: "MOCK_CINEMA_ID", name: "Ca sang", startTime: "08:00", endTime: "12:00" },
-  { id: "afternoon", cinemaId: "MOCK_CINEMA_ID", name: "Ca chieu", startTime: "12:00", endTime: "18:00" },
-  { id: "night", cinemaId: "MOCK_CINEMA_ID", name: "Ca toi", startTime: "18:00", endTime: "23:00" },
-];
-
 const emptyForm: FormState = {
   name: "",
   startTime: "08:00",
@@ -57,17 +50,12 @@ export function ShiftTypesPage() {
   );
 
   const loadTemplates = async () => {
-    if (IS_MOCK_MODE) {
-      setTemplates(MOCK_SHIFT_TYPES);
-      return;
-    }
-
     if (!cinemaId) {
       setTemplates([]);
       addNotification({
         type: "error",
-        title: "Khong tim thay ma rap",
-        message: "Vui long dang nhap lai hoac kiem tra thong tin tai khoan.",
+        title: "Cinema not found",
+        message: "Please sign in again or verify your account details.",
         duration: 3500,
       });
       return;
@@ -80,8 +68,8 @@ export function ShiftTypesPage() {
       console.error(error);
       addNotification({
         type: "error",
-        title: "Khong the tai ca lam",
-        message: "Vui long thu lai hoac kiem tra ket noi.",
+        title: "Unable to load shift types",
+        message: "Please try again or check your connection.",
         duration: 4000,
       });
     } finally {
@@ -110,11 +98,11 @@ export function ShiftTypesPage() {
   };
 
   const submitForm = async () => {
-    if (!cinemaId && !IS_MOCK_MODE) {
+    if (!cinemaId) {
       addNotification({
         type: "error",
-        title: "Chua co ma rap",
-        message: "Khong the luu ca lam neu chua xac dinh rap quan ly.",
+        title: "Cinema not set",
+        message: "Cannot save shift types without selecting a cinema.",
         duration: 3500,
       });
       return;
@@ -122,44 +110,29 @@ export function ShiftTypesPage() {
     setIsSaving(true);
     try {
       if (editingId) {
-        if (IS_MOCK_MODE) {
-          setTemplates((prev) =>
-            prev.map((t) => (t.id === editingId ? { ...t, ...form } : t))
-          );
-        } else {
-          const updated = await workScheduleService.updateShiftTemplate(cinemaId, editingId, {
-            name: form.name,
-            startTime: form.startTime,
-            endTime: form.endTime,
-          });
-          setTemplates((prev) => prev.map((t) => (t.id === editingId ? updated : t)));
-        }
+        const updated = await workScheduleService.updateShiftTemplate(cinemaId, editingId, {
+          name: form.name,
+          startTime: form.startTime,
+          endTime: form.endTime,
+        });
+        setTemplates((prev) => prev.map((t) => (t.id === editingId ? updated : t)));
         addNotification({
           type: "success",
-          title: "Cap nhat ca lam",
-          message: "Da cap nhat ca lam thanh cong.",
+          title: "Shift updated",
+          message: "The shift type was updated successfully.",
           duration: 3000,
         });
       } else {
-        if (IS_MOCK_MODE) {
-          const created: ShiftTemplate = {
-            id: `mock-${Date.now()}`,
-            cinemaId: cinemaId || "MOCK_CINEMA_ID",
-            ...form,
-          };
-          setTemplates((prev) => [...prev, created]);
-        } else {
-          const created = await workScheduleService.createShiftTemplate(cinemaId, {
-            name: form.name,
-            startTime: form.startTime,
-            endTime: form.endTime,
-          });
-          setTemplates((prev) => [...prev, created]);
-        }
+        const created = await workScheduleService.createShiftTemplate(cinemaId, {
+          name: form.name,
+          startTime: form.startTime,
+          endTime: form.endTime,
+        });
+        setTemplates((prev) => [...prev, created]);
         addNotification({
           type: "success",
-          title: "Them ca lam",
-          message: "Da tao ca lam moi.",
+          title: "Shift created",
+          message: "A new shift type was added.",
           duration: 3000,
         });
       }
@@ -168,8 +141,8 @@ export function ShiftTypesPage() {
       console.error(error);
       addNotification({
         type: "error",
-        title: "Khong the luu ca lam",
-        message: "Vui long kiem tra thong tin va thu lai.",
+        title: "Failed to save shift type",
+        message: "Please verify the details and try again.",
         duration: 4000,
       });
     } finally {
@@ -178,26 +151,22 @@ export function ShiftTypesPage() {
   };
 
   const deleteTemplate = async (tpl: ShiftTemplate) => {
-    if (!cinemaId && !IS_MOCK_MODE) {
+    if (!cinemaId) {
       addNotification({
         type: "error",
-        title: "Chua co ma rap",
-        message: "Khong the xoa ca lam khi chua xac dinh rap.",
+        title: "Cinema not set",
+        message: "Cannot delete shift types without selecting a cinema.",
         duration: 3000,
       });
       return;
     }
     setWorkingId(tpl.id);
     try {
-      if (IS_MOCK_MODE) {
-        setTemplates((prev) => prev.filter((t) => t.id !== tpl.id));
-      } else {
-        await workScheduleService.deleteShiftTemplate(cinemaId, tpl.id);
-        setTemplates((prev) => prev.filter((t) => t.id !== tpl.id));
-      }
+      await workScheduleService.deleteShiftTemplate(cinemaId, tpl.id);
+      setTemplates((prev) => prev.filter((t) => t.id !== tpl.id));
       addNotification({
         type: "success",
-        title: "Da xoa ca lam",
+        title: "Shift deleted",
         message: tpl.name,
         duration: 2500,
       });
@@ -205,8 +174,8 @@ export function ShiftTypesPage() {
       console.error(error);
       addNotification({
         type: "error",
-        title: "Khong the xoa ca lam",
-        message: "Thu lai sau.",
+        title: "Failed to delete shift",
+        message: "Please try again later.",
         duration: 3500,
       });
     } finally {
@@ -221,42 +190,36 @@ export function ShiftTypesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Ca lam"
-        description="Quan ly danh sach ca lam, khung gio va trang thai kich hoat."
+        title="Shift Types"
+        description="Manage shift definitions, time ranges, and activation status."
       />
-
-      {IS_MOCK_MODE && (
-        <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm text-primary">
-          Du lieu dang duoc gia lap de xem UI. Bo qua ket noi backend, thao tac chi cap nhat trong giao dien.
-        </div>
-      )}
 
       <Card>
         <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <CardTitle>Danh sach ca lam</CardTitle>
-            <CardDescription>Ap dung cho rap: {cinemaId || "Chua xac dinh"}</CardDescription>
+            <CardTitle>Shift list</CardTitle>
+            <CardDescription>Applied to cinema: {cinemaId || "Not set"}</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={loadTemplates} disabled={isLoading || (!cinemaId && !IS_MOCK_MODE)}>
+            <Button variant="outline" size="sm" onClick={loadTemplates} disabled={isLoading || !cinemaId}>
               <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-              Tai lai
+              Reload
             </Button>
-            <Button size="sm" onClick={openCreateModal} disabled={!cinemaId && !IS_MOCK_MODE}>
+            <Button size="sm" onClick={openCreateModal} disabled={!cinemaId}>
               <PlusCircle className="h-4 w-4" />
-              Them ca lam
+              Add shift
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {!cinemaId && !IS_MOCK_MODE ? (
+          {!cinemaId ? (
             <p className="text-sm text-muted-foreground">
-              Khong the hien thi ca lam vi chua xac dinh rap quan ly.
+              Cannot show shifts because the cinema is not selected.
             </p>
           ) : isLoading ? (
-            <p className="text-sm text-muted-foreground">Dang tai ca lam...</p>
+            <p className="text-sm text-muted-foreground">Loading shift types...</p>
           ) : sortedTemplates.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Chua co ca lam. Them moi de bat dau.</p>
+            <p className="text-sm text-muted-foreground">No shift types yet. Add one to get started.</p>
           ) : (
             <div className="space-y-3">
               {sortedTemplates.map((tpl) => (
@@ -277,7 +240,7 @@ export function ShiftTypesPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <Button variant="outline" size="sm" onClick={() => openEditModal(tpl)}>
                       <Pencil className="h-4 w-4" />
-                      Sua
+                      Edit
                     </Button>
                     <Button
                       variant="ghost"
@@ -287,7 +250,7 @@ export function ShiftTypesPage() {
                       disabled={workingId === tpl.id}
                     >
                       <Trash className="h-4 w-4" />
-                      Xoa
+                      Delete
                     </Button>
                   </div>
                 </div>
@@ -300,22 +263,22 @@ export function ShiftTypesPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingId ? "Chinh sua ca lam" : "Them ca lam moi"}
+        title={editingId ? "Edit shift type" : "Add shift type"}
       >
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Ten ca</Label>
+            <Label htmlFor="name">Shift name</Label>
             <Input
               id="name"
               value={form.name}
               onChange={(e) => handleChange("name", e.target.value)}
-              placeholder="Vi du: Ca sang"
+              placeholder="Example: Morning Shift"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="startTime">Bat dau</Label>
+              <Label htmlFor="startTime">Start</Label>
               <Input
                 id="startTime"
                 type="time"
@@ -324,7 +287,7 @@ export function ShiftTypesPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="endTime">Ket thuc</Label>
+              <Label htmlFor="endTime">End</Label>
               <Input
                 id="endTime"
                 type="time"
@@ -336,10 +299,10 @@ export function ShiftTypesPage() {
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>
-              Huy
+              Cancel
             </Button>
             <Button onClick={submitForm} disabled={isSaving || !form.name}>
-              {isSaving ? "Dang luu..." : "Luu"}
+              {isSaving ? "Saving..." : "Save"}
             </Button>
           </div>
         </div>

@@ -49,22 +49,6 @@ type DaySchedule = {
 
 type SlotSelector = { date: string; slotId: string } | null;
 
-const IS_MOCK_MODE = true; // Doi thanh false de ket noi lai backend
-
-const MOCK_SHIFT_TEMPLATES: ShiftTemplate[] = [
-  { id: "morning", cinemaId: "MOCK_CINEMA_ID", name: "Ca sang", startTime: "08:00", endTime: "12:00" },
-  { id: "afternoon", cinemaId: "MOCK_CINEMA_ID", name: "Ca chieu", startTime: "12:00", endTime: "18:00" },
-  { id: "night", cinemaId: "MOCK_CINEMA_ID", name: "Ca toi", startTime: "18:00", endTime: "23:00" },
-];
-
-const MOCK_STAFF_POOL: StaffMember[] = [
-  { id: "s1", name: "Nguyen Van A", role: "Quan ly" },
-  { id: "s2", name: "Tran Thi B", role: "Thu ngan" },
-  { id: "s3", name: "Le Van C", role: "Soat ve" },
-  { id: "s4", name: "Pham Thi D", role: "Ban do uong" },
-  { id: "s5", name: "Hoang Van E", role: "Ky thuat" },
-];
-
 const toInputDate = (date: Date) => date.toISOString().slice(0, 10);
 
 const startOfWeek = (date: Date) => {
@@ -113,7 +97,7 @@ const buildScheduleFromApi = (
   templates: ShiftTemplate[],
   schedules: WorkScheduleResponse[]
 ): DaySchedule[] => {
-  if (!templates.length) return [];
+  const templateMap = new Map(templates.map((t) => [t.id, t]));
 
   const schedulesByDate = new Map<string, WorkScheduleResponse[]>();
   schedules.forEach((item) => {
@@ -123,57 +107,44 @@ const buildScheduleFromApi = (
     schedulesByDate.set(dateKey, list);
   });
 
-  const sortedTemplates = [...templates].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
-
   return dates.map((date) => {
     const daySchedules = schedulesByDate.get(date) ?? [];
-    return {
-      date,
-      slots: sortedTemplates.map((tpl) => {
-        const matches = daySchedules.filter((s) => s.shiftTypeId === tpl.id);
+    // Khi một ngày không có lịch làm nào, để trống phần slot
+    if (!daySchedules.length) {
+      return { date, slots: [] };
+    }
+
+    const slots = Array.from(
+      daySchedules
+        .reduce((map, sched) => {
+          const existing = map.get(sched.shiftTypeId) ?? [];
+          existing.push(sched);
+          map.set(sched.shiftTypeId, existing);
+          return map;
+        }, new Map<string, WorkScheduleResponse[]>())
+        .entries()
+    )
+      .map(([shiftTypeId, items]) => {
+        const tpl = templateMap.get(shiftTypeId);
+        const start = tpl?.startTime || items[0]?.shiftStart;
+        const end = tpl?.endTime || items[0]?.shiftEnd;
         return {
-          id: `${tpl.id}-${date}`,
-          templateId: tpl.id,
-          name: tpl.name,
-          startTime: formatTimeLabel(tpl.startTime || matches[0]?.shiftStart),
-          endTime: formatTimeLabel(tpl.endTime || matches[0]?.shiftEnd),
-          assignments: matches.map((m) => ({
+          id: `${shiftTypeId}-${date}`,
+          templateId: shiftTypeId,
+          name: tpl?.name || items[0]?.shiftTypeName || "Shift",
+          startTime: formatTimeLabel(start),
+          endTime: formatTimeLabel(end),
+          assignments: items.map((m) => ({
             scheduleId: m.id,
             userId: m.userId,
             userName: m.userName,
           })),
         };
-      }),
-    };
+      })
+      .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+
+    return { date, slots };
   });
-};
-
-const buildMockSchedule = (dates: string[], templates: ShiftTemplate[], staff: StaffMember[]): DaySchedule[] => {
-  const sortedTemplates = [...templates].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
-
-  return dates.map((date, dateIndex) => ({
-    date,
-    slots: sortedTemplates.map((tpl, tplIndex) => {
-      const assigned = staff
-        .filter((_, staffIndex) => (staffIndex + dateIndex + tplIndex) % 2 === 0)
-        .slice(0, 3);
-      const fallback = staff[(dateIndex + tplIndex) % staff.length];
-      const finalAssigned = assigned.length ? assigned : [fallback];
-
-      return {
-        id: `${tpl.id}-${date}`,
-        templateId: tpl.id,
-        name: tpl.name,
-        startTime: formatTimeLabel(tpl.startTime),
-        endTime: formatTimeLabel(tpl.endTime),
-        assignments: finalAssigned.map((member, idx) => ({
-          scheduleId: `${tpl.id}-${date}-${idx}`,
-          userId: member.id,
-          userName: member.name,
-        })),
-      };
-    }),
-  }));
 };
 
 export function WorkSchedulePage() {
@@ -203,40 +174,15 @@ export function WorkSchedulePage() {
 
   const weekDates = useMemo(() => buildWeekDates(weekStart), [weekStart]);
   const authCinemaId = useAuthStore((state) => state.user?.cinemaId ?? "");
-  const cinemaId = IS_MOCK_MODE ? authCinemaId || "MOCK_CINEMA_ID" : authCinemaId;
+  const cinemaId = authCinemaId;
   const addNotification = useNotificationStore((state) => state.addNotification);
   const { hasPermission } = usePermissions();
   const canCreateSchedule = hasPermission(PERMISSIONS.WORK_SCHEDULE_CREATE);
-  const canUpdateSchedule = hasPermission(PERMISSIONS.WORK_SCHEDULE_UPDATE);
+  const canUpdateSchedule = hasPermission(PERMISSIONS.WORK_SCHEDULE_CREATE);
   const canDeleteSchedule = hasPermission(PERMISSIONS.WORK_SCHEDULE_DELETE);
-
-  const loadMockWeek = useCallback((startDate: Date) => {
-    const dates = buildWeekDates(startDate);
-    setIsLoading(true);
-
-    const templates = MOCK_SHIFT_TEMPLATES;
-    const staff = MOCK_STAFF_POOL;
-
-    setShiftTemplates(templates);
-    setStaffPool(staff);
-    setCreateForm((prev) => ({
-      ...prev,
-      shiftTypeId: prev.shiftTypeId || templates[0]?.id || "",
-      date: prev.date || dates[0],
-    }));
-    setSchedule(buildMockSchedule(dates, templates, staff));
-
-    setTimeout(() => setIsLoading(false), 300);
-  }, []);
 
   const refreshWeekData = useCallback(
     async (startDate: Date) => {
-      if (IS_MOCK_MODE) {
-        loadMockWeek(startDate);
-        return;
-      }
-
-      // Backend flow giu lai de ket noi lai khi co API
       if (!cinemaId) {
         setStaffPool([]);
         setSchedule([]);
@@ -273,15 +219,15 @@ export function WorkSchedulePage() {
         console.error(error);
         addNotification({
           type: "error",
-          title: "Khong the tai lich truc",
-          message: "Vui long thu lai hoac kiem tra ket noi toi may chu.",
+          title: "Unable to load schedules",
+          message: "Please try again or check the server connection.",
           duration: 4500,
         });
       } finally {
         setIsLoading(false);
       }
     },
-    [addNotification, cinemaId, loadMockWeek]
+    [addNotification, cinemaId]
   );
 
   useEffect(() => {
@@ -334,39 +280,11 @@ export function WorkSchedulePage() {
   }, [schedule, selector]);
 
   const assignStaff = async (date: string, slotId: string, templateId: string, staffId: string) => {
-    if (IS_MOCK_MODE) {
-      setIsSaving(true);
-      setSavingStaffId(staffId);
-      setTimeout(() => {
-        const staff = staffMap.get(staffId);
-        updateSlotAssignments(date, slotId, (list) => {
-          if (list.some((a) => a.userId === staffId)) return list;
-          return [
-            ...list,
-            {
-              scheduleId: `mock-${templateId}-${staffId}-${Date.now()}`,
-              userId: staffId,
-              userName: staff?.name,
-            },
-          ];
-        });
-        setIsSaving(false);
-        setSavingStaffId(null);
-        addNotification({
-          type: "success",
-          title: "Da them nhan vien",
-          message: `${staff?.name || staffId} da duoc them vao ca (gia lap).`,
-          duration: 2500,
-        });
-      }, 200);
-      return;
-    }
-
     if (!cinemaId) {
       addNotification({
         type: "error",
-        title: "Chua xac dinh rap",
-        message: "Khong the phan ca khi khong co ma rap.",
+        title: "Cinema not set",
+        message: "Cannot assign staff without a cinema ID.",
         duration: 3000,
       });
       return;
@@ -396,8 +314,8 @@ export function WorkSchedulePage() {
       console.error(error);
       addNotification({
         type: "error",
-        title: "Khong the phan ca",
-        message: "Vui long thu lai hoac kiem tra du lieu nhap.",
+        title: "Cannot assign shift",
+        message: "Please retry or verify the input data.",
         duration: 4000,
       });
     } finally {
@@ -414,28 +332,11 @@ export function WorkSchedulePage() {
 
     if (!assignment) return;
 
-    if (IS_MOCK_MODE) {
-      setIsSaving(true);
-      setSavingStaffId(staffId);
-      setTimeout(() => {
-        updateSlotAssignments(date, slotId, (list) => list.filter((a) => a.userId !== staffId));
-        setIsSaving(false);
-        setSavingStaffId(null);
-        addNotification({
-          type: "success",
-          title: "Da xoa nhan vien",
-          message: `Da loai ${staffMap.get(staffId)?.name || staffId} khoi ca (gia lap).`,
-          duration: 2500,
-        });
-      }, 180);
-      return;
-    }
-
     if (!cinemaId) {
       addNotification({
         type: "error",
-        title: "Chua xac dinh rap",
-        message: "Khong the huy phan ca khi khong co ma rap.",
+        title: "Cinema not set",
+        message: "Cannot remove staff without a cinema ID.",
         duration: 3000,
       });
       return;
@@ -450,8 +351,8 @@ export function WorkSchedulePage() {
       console.error(error);
       addNotification({
         type: "error",
-        title: "Khong the huy phan ca",
-        message: "Vui long thu lai sau.",
+        title: "Cannot unassign staff",
+        message: "Please try again later.",
         duration: 4000,
       });
     } finally {
@@ -502,53 +403,24 @@ export function WorkSchedulePage() {
     if (!createForm.shiftTypeId || !createForm.date || createForm.userIds.length === 0) {
       addNotification({
         type: "error",
-        title: "Thieu thong tin",
-        message: "Vui long chon ngay, ca lam va it nhat 1 nhan vien.",
+        title: "Lack of information",
+        message: "Please choose a date, shift, and at least one staff member.",
         duration: 4000,
       });
       return;
     }
     setIsCreating(true);
-    if (IS_MOCK_MODE) {
-      setTimeout(() => {
-        setSchedule((prev) =>
-          prev.map((day) =>
-            day.date === createForm.date
-              ? {
-                  ...day,
-                  slots: day.slots.map((slot) =>
-                    slot.templateId === createForm.shiftTypeId
-                      ? {
-                          ...slot,
-                          assignments: [
-                            ...slot.assignments,
-                            ...createForm.userIds.map((id, idx) => ({
-                              scheduleId: `mock-${slot.templateId}-${id}-${Date.now()}-${idx}`,
-                              userId: id,
-                              userName: staffMap.get(id)?.name,
-                            })),
-                          ],
-                        }
-                      : slot
-                  ),
-                }
-              : day
-          )
-        );
 
-        addNotification({
-          type: "success",
-          title: "Da tao lich",
-          message: "Lich lam moi duoc them vao giao dien gia lap.",
-          duration: 3500,
-        });
-        setCreateModalOpen(false);
-        setIsCreating(false);
-      }, 250);
+    if (!cinemaId) {
+      addNotification({
+        type: "error",
+        title: "Cinema not set",
+        message: "Cannot create a schedule without selecting a cinema.",
+        duration: 3500,
+      });
+      setIsCreating(false);
       return;
     }
-
-    if (!cinemaId) return;
     try {
       await workScheduleService.createSchedules(cinemaId, {
         userIds: createForm.userIds,
@@ -557,8 +429,8 @@ export function WorkSchedulePage() {
       });
       addNotification({
         type: "success",
-        title: "Da tao lich",
-        message: "Lich lam moi da duoc cap nhat.",
+        title: "Schedule created",
+        message: "The schedule has been updated.",
         duration: 3500,
       });
       setCreateModalOpen(false);
@@ -567,8 +439,8 @@ export function WorkSchedulePage() {
       console.error(error);
       addNotification({
         type: "error",
-        title: "Khong tao duoc lich",
-        message: "Vui long kiem tra du lieu va thu lai.",
+        title: "Failed to create schedule",
+        message: "Please check your data and try again.",
         duration: 4500,
       });
     } finally {
@@ -595,56 +467,24 @@ export function WorkSchedulePage() {
     if (!payload.shiftTypeId && !payload.workDate) {
       addNotification({
         type: "error",
-        title: "Khong co gi de cap nhat",
-        message: "Vui long thay doi ca lam hoac ngay lam truoc khi luu.",
+        title: "Nothing to update",
+        message: "Change the shift or date before saving.",
         duration: 3500,
       });
       return;
     }
     setIsUpdatingShift(true);
-    if (IS_MOCK_MODE) {
-      setTimeout(() => {
-        setSchedule((prev) => {
-          const next = prev.map((day) => ({
-            ...day,
-            slots: day.slots.map((slot) => ({ ...slot, assignments: [...slot.assignments] })),
-          }));
 
-          const sourceDay = next.find((d) => d.date === editContext.date);
-          const sourceSlot = sourceDay?.slots.find((s) => s.templateId === editContext.shiftTypeId);
-          if (!sourceDay || !sourceSlot) return prev;
-
-          const assignmentsToMove = [...sourceSlot.assignments];
-          sourceSlot.assignments = [];
-
-          const targetDay = next.find((d) => d.date === (payload.workDate || editContext.date));
-          const targetSlot = targetDay?.slots.find((s) => s.templateId === (payload.shiftTypeId || editContext.shiftTypeId));
-          if (!targetDay || !targetSlot) return prev;
-
-          targetSlot.assignments = [
-            ...targetSlot.assignments,
-            ...assignmentsToMove.map((a, idx) => ({
-              ...a,
-              scheduleId: `${(payload.shiftTypeId || editContext.shiftTypeId)}-${payload.workDate || editContext.date}-${idx}`,
-            })),
-          ];
-
-          return next;
-        });
-
-        addNotification({
-          type: "success",
-          title: "Da cap nhat ca",
-          message: "Thong tin duoc cap nhat trong giao dien gia lap.",
-          duration: 3500,
-        });
-        setEditContext(null);
-        setIsUpdatingShift(false);
-      }, 280);
+    if (!cinemaId) {
+      addNotification({
+        type: "error",
+        title: "Cinema not set",
+        message: "Cannot update a shift without a cinema ID.",
+        duration: 3500,
+      });
+      setIsUpdatingShift(false);
       return;
     }
-
-    if (!cinemaId) return;
     try {
       await workScheduleService.updateShiftInstance(
         cinemaId,
@@ -654,8 +494,8 @@ export function WorkSchedulePage() {
       );
       addNotification({
         type: "success",
-        title: "Da cap nhat ca",
-        message: "Thong tin ca lam da duoc cap nhat.",
+        title: "Shift updated",
+        message: "Shift information has been updated.",
         duration: 3500,
       });
       setEditContext(null);
@@ -664,8 +504,8 @@ export function WorkSchedulePage() {
       console.error(error);
       addNotification({
         type: "error",
-        title: "Khong the cap nhat",
-        message: "Vui long kiem tra du lieu va thu lai.",
+        title: "Update failed",
+        message: "Please check the data and try again.",
         duration: 4500,
       });
     } finally {
@@ -677,33 +517,17 @@ export function WorkSchedulePage() {
     if (!canDeleteSchedule) return;
     if (!deleteContext) return;
     setIsDeletingShift(true);
-    if (IS_MOCK_MODE) {
-      setTimeout(() => {
-        setSchedule((prev) =>
-          prev.map((day) =>
-            day.date === deleteContext.date
-              ? {
-                  ...day,
-                  slots: day.slots.map((slot) =>
-                    slot.templateId === deleteContext.shiftTypeId ? { ...slot, assignments: [] } : slot
-                  ),
-                }
-              : day
-          )
-        );
-        addNotification({
-          type: "success",
-          title: "Da xoa ca",
-          message: "Da xoa phan cong ca trong giao dien gia lap.",
-          duration: 3500,
-        });
-        setDeleteContext(null);
-        setIsDeletingShift(false);
-      }, 260);
+
+    if (!cinemaId) {
+      addNotification({
+        type: "error",
+        title: "Cinema not set",
+        message: "Cannot delete a shift without a cinema ID.",
+        duration: 3500,
+      });
+      setIsDeletingShift(false);
       return;
     }
-
-    if (!cinemaId) return;
     try {
       await workScheduleService.deleteShiftInstance(
         cinemaId,
@@ -712,8 +536,8 @@ export function WorkSchedulePage() {
       );
       addNotification({
         type: "success",
-        title: "Da xoa ca",
-        message: "Ca lam va phan cong lien quan da duoc xoa.",
+        title: "Shift deleted",
+        message: "The shift and related assignments were deleted.",
         duration: 3500,
       });
       setDeleteContext(null);
@@ -722,8 +546,8 @@ export function WorkSchedulePage() {
       console.error(error);
       addNotification({
         type: "error",
-        title: "Khong the xoa ca",
-        message: "Thu lai sau hoac kiem tra ket noi.",
+        title: "Delete failed",
+        message: "Please try again or check your connection.",
         duration: 4500,
       });
     } finally {
@@ -735,36 +559,30 @@ export function WorkSchedulePage() {
     <div className="space-y-6">
       <PageHeader
         title="Work Schedule Management"
-        description="Lich tuan 7 ngay voi cac ca truc va chon nhan vien. (Dang dung du lieu gia lap)"
+        description="7-day weekly view with shifts and staff assignments."
       />
-
-      {IS_MOCK_MODE && (
-        <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm text-primary">
-          Du lieu dang duoc gia lap de xem UI. Bo qua ket noi backend, thao tac chi cap nhat trong giao dien.
-        </div>
-      )}
 
       <Card>
         <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <CardTitle>Tuan dang xem</CardTitle>
+            <CardTitle>Current week</CardTitle>
             <CardDescription>
               {formatDayLabel(weekDates[0]).day} - {formatDayLabel(weekDates[6]).day}
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" size="sm" onClick={() => moveWeek("prev")}>
-              <ArrowLeft className="h-4 w-4" />
-              Tuan truoc
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => moveWeek("next")}>
-              Tuan sau
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+              <Button variant="outline" size="sm" onClick={() => moveWeek("prev")}>
+                <ArrowLeft className="h-4 w-4" />
+                Previous week
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => moveWeek("next")}>
+                Next week
+                <ArrowRight className="h-4 w-4" />
+              </Button>
             <div className="hidden md:flex items-center gap-3 text-sm text-muted-foreground">
               <CalendarClock className="h-4 w-4 text-primary" />
               <span>
-                {totalShifts} ca / {totalAssignments} luot phan cong
+                {totalShifts} shifts / {totalAssignments} assignments
               </span>
             </div>
             {canCreateSchedule && (
@@ -775,26 +593,26 @@ export function WorkSchedulePage() {
                 disabled={isLoading || !cinemaId || !shiftTemplates.length}
               >
                 <PlusCircle className="h-4 w-4" />
-                Tao lich lam
+                Create schedule
               </Button>
             )}
             <Button variant="outline" size="sm" disabled={isLoading} onClick={() => refreshWeekData(weekStart)}>
-              {isLoading ? "Dang tai du lieu mau..." : "Tai lai du lieu"}
+              {isLoading ? "Loading data..." : "Reload data"}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            {!cinemaId && !IS_MOCK_MODE && (
+            {!cinemaId && (
               <div className="py-6 text-center text-sm text-muted-foreground">
-                Khong the tai lich truc vi thieu ma rap trong tai khoan.
+                Cannot load schedules because the cinema ID is missing.
               </div>
             )}
             {isLoading && (
-              <div className="py-6 text-center text-sm text-muted-foreground">Dang tai du lieu mau...</div>
+              <div className="py-6 text-center text-sm text-muted-foreground">Loading data...</div>
             )}
             {!isLoading && !schedule.length && (
-              <div className="py-6 text-center text-sm text-muted-foreground">Chua co du lieu lich truc.</div>
+              <div className="py-6 text-center text-sm text-muted-foreground">No schedules found.</div>
             )}
             {schedule.length > 0 && (
               <div className="grid min-w-[980px] grid-cols-7 gap-3">
@@ -815,7 +633,7 @@ export function WorkSchedulePage() {
                           <p className="text-sm font-semibold text-foreground">{label.day}</p>
                         </div>
                         <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
-                          {dayStaffCount} NV
+                          {dayStaffCount} staff
                         </span>
                       </div>
 
@@ -825,8 +643,7 @@ export function WorkSchedulePage() {
                           return (
                             <div
                               role={canUpdateSchedule ? "button" : undefined}
-                              tabIndex={0}
-                              key={slot.id}
+                              tabIndex={canUpdateSchedule ? 0 : -1}
                               onClick={() => {
                                 if (!canUpdateSchedule) return;
                                 setSelector({ date: day.date, slotId: slot.id });
@@ -837,53 +654,51 @@ export function WorkSchedulePage() {
                                   setSelector({ date: day.date, slotId: slot.id });
                                 }
                               }}
+                              key={slot.id}
                               className={cn(
-                                "w-full text-left rounded-lg border bg-background p-3 shadow-sm transition-colors focus:outline-none",
+                                "relative w-full text-left rounded-lg border bg-background p-3 shadow-sm transition-colors focus:outline-none",
                                 canUpdateSchedule
                                   ? "hover:border-primary/50 hover:bg-primary/5 focus:ring-2 focus:ring-primary/50"
                                   : "cursor-default"
                               )}
                             >
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <p className="text-sm font-semibold text-foreground">{slot.name}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {slot.startTime} - {slot.endTime}
-                                  </p>
+                              {(canUpdateSchedule || canDeleteSchedule) && (
+                                <div className="-mr-1 -mt-1 mb-1 flex justify-end gap-1">
+                                  {canUpdateSchedule && (
+                                    <button
+                                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openEditDialog(day.date, slot.templateId, slot.name);
+                                      }}
+                                      title="Edit shift"
+                                      disabled={!hasAssignments}
+                                    >
+                                      <PenSquare className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  {canDeleteSchedule && (
+                                    <button
+                                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteContext({ date: day.date, shiftTypeId: slot.templateId, shiftName: slot.name });
+                                      }}
+                                      title="Delete shift"
+                                      disabled={!hasAssignments}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  )}
                                 </div>
-                                {(canUpdateSchedule || canDeleteSchedule) && (
-                                  <div className="flex items-center gap-1">
-                                    {canUpdateSchedule && (
-                                      <button
-                                        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          openEditDialog(day.date, slot.templateId, slot.name);
-                                        }}
-                                        title="Chinh sua ca"
-                                        disabled={!hasAssignments}
-                                      >
-                                        <PenSquare className="h-4 w-4" />
-                                      </button>
-                                    )}
-                                    {canDeleteSchedule && (
-                                      <button
-                                        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setDeleteContext({ date: day.date, shiftTypeId: slot.templateId, shiftName: slot.name });
-                                        }}
-                                        title="Xoa ca lam"
-                                        disabled={!hasAssignments}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
+                              )}
+                              <div className="space-y-0.5">
+                                <p className="text-sm font-semibold text-foreground leading-tight">{slot.name}</p>
+                                <p className="text-xs text-muted-foreground whitespace-nowrap leading-tight">
+                                  {slot.startTime} - {slot.endTime}
+                                </p>
                               </div>
-
-                              <div className="mt-3 flex flex-wrap gap-2">
+                              <div className="mt-2 flex flex-wrap gap-2">
                                 {slot.assignments.map((assignment) => {
                                   const staff = staffMap.get(assignment.userId);
                                   return (
@@ -909,7 +724,7 @@ export function WorkSchedulePage() {
                                   );
                                 })}
                                 {slot.assignments.length === 0 && (
-                                  <span className="text-[11px] text-muted-foreground">Nhan de chon nhan vien cho ca</span>
+                                  <span className="text-[11px] text-muted-foreground">Tap to select staff for this shift</span>
                                 )}
                               </div>
                             </div>
@@ -925,11 +740,11 @@ export function WorkSchedulePage() {
         </CardContent>
       </Card>
 
-      <Modal isOpen={createModalOpen} onClose={() => setCreateModalOpen(false)} title="Tao lich lam" maxWidth="lg">
+      <Modal isOpen={createModalOpen} onClose={() => setCreateModalOpen(false)} title="Create schedule" maxWidth="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
-              Ngay lam
+              Work date
               <input
                 type="date"
                 min={toInputDate(new Date())}
@@ -939,7 +754,7 @@ export function WorkSchedulePage() {
               />
             </label>
             <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
-              Ca lam
+              Shift
               <select
                 value={createForm.shiftTypeId}
                 onChange={(e) => setCreateForm((prev) => ({ ...prev, shiftTypeId: e.target.value }))}
@@ -950,16 +765,16 @@ export function WorkSchedulePage() {
                     {tpl.name} ({formatTimeLabel(tpl.startTime)} - {formatTimeLabel(tpl.endTime)})
                   </option>
                 ))}
-                {!shiftTemplates.length && <option value="">Chua co ca lam</option>}
+                {!shiftTemplates.length && <option value="">No shifts available</option>}
               </select>
             </label>
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-semibold text-foreground">Nhan vien lam ca</p>
+            <p className="text-sm font-semibold text-foreground">Staff on shift</p>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               {staffPool.length === 0 && (
-                <p className="col-span-2 text-sm text-muted-foreground">Khong co danh sach nhan vien.</p>
+                <p className="col-span-2 text-sm text-muted-foreground">No staff available.</p>
               )}
               {staffPool.map((staff) => {
                 const checked = createForm.userIds.includes(staff.id);
@@ -989,10 +804,10 @@ export function WorkSchedulePage() {
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setCreateModalOpen(false)}>
-              Huy
+              Cancel
             </Button>
             <Button onClick={handleCreateSchedule} disabled={isCreating}>
-              {isCreating ? "Dang luu..." : "Tao lich"}
+              {isCreating ? "Saving..." : "Create schedule"}
             </Button>
           </div>
         </div>
@@ -1001,12 +816,12 @@ export function WorkSchedulePage() {
       <Modal
         isOpen={Boolean(editContext)}
         onClose={() => setEditContext(null)}
-        title={editContext ? `Chinh sua ca ${editContext.shiftName}` : "Chinh sua ca"}
+        title={editContext ? `Edit shift ${editContext.shiftName}` : "Edit shift"}
         maxWidth="sm"
       >
         <div className="space-y-4">
           <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
-            Ngay lam
+            Work date
             <input
               type="date"
               value={editForm.date}
@@ -1016,7 +831,7 @@ export function WorkSchedulePage() {
             />
           </label>
           <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
-            Ca lam
+            Shift
             <select
               value={editForm.shiftTypeId}
               onChange={(e) => setEditForm((prev) => ({ ...prev, shiftTypeId: e.target.value }))}
@@ -1027,15 +842,15 @@ export function WorkSchedulePage() {
                   {tpl.name} ({formatTimeLabel(tpl.startTime)} - {formatTimeLabel(tpl.endTime)})
                 </option>
               ))}
-              {!shiftTemplates.length && <option value="">Chua co ca lam</option>}
+              {!shiftTemplates.length && <option value="">No shifts available</option>}
             </select>
           </label>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setEditContext(null)}>
-              Huy
+              Cancel
             </Button>
             <Button onClick={handleUpdateShift} disabled={isUpdatingShift}>
-              {isUpdatingShift ? "Dang luu..." : "Cap nhat"}
+              {isUpdatingShift ? "Saving..." : "Update"}
             </Button>
           </div>
         </div>
@@ -1044,21 +859,21 @@ export function WorkSchedulePage() {
       <Modal
         isOpen={Boolean(deleteContext)}
         onClose={() => setDeleteContext(null)}
-        title="Xoa ca lam"
+        title="Delete shift"
         maxWidth="sm"
       >
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Ban co chac muon xoa ca{" "}
-            <span className="font-semibold text-foreground">{deleteContext?.shiftName}</span> vao{" "}
-            {deleteContext ? formatDayLabel(deleteContext.date).day : ""}? Tat ca nhan vien trong ca se bi huy.
+            Are you sure you want to delete shift{" "}
+            <span className="font-semibold text-foreground">{deleteContext?.shiftName}</span> on{" "}
+            {deleteContext ? formatDayLabel(deleteContext.date).day : ""}? All staff in this shift will be removed.
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setDeleteContext(null)}>
-              Huy
+              Cancel
             </Button>
             <Button variant="destructive" onClick={handleDeleteShift} disabled={isDeletingShift}>
-              {isDeletingShift ? "Dang xoa..." : "Xoa ca"}
+              {isDeletingShift ? "Deleting..." : "Delete shift"}
             </Button>
           </div>
         </div>
@@ -1069,7 +884,7 @@ export function WorkSchedulePage() {
         onClose={() => setSelector(null)}
         title={
           selectedSlotInfo
-            ? `Chon nhan vien cho ${selectedSlotInfo.slot.name} - ${formatDayLabel(
+            ? `Select staff for ${selectedSlotInfo.slot.name} - ${formatDayLabel(
                 selectedSlotInfo.day.date
               ).day}`
             : undefined
@@ -1079,7 +894,7 @@ export function WorkSchedulePage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             {staffPool.length === 0 && (
-              <p className="col-span-2 text-sm text-muted-foreground">Khong co danh sach nhan vien.</p>
+              <p className="col-span-2 text-sm text-muted-foreground">No staff available.</p>
             )}
             {staffPool.map((staff) => {
               const checked = selectedSlotInfo?.slot.assignments.some((a) => a.userId === staff.id) ?? false;

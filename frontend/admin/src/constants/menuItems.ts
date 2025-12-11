@@ -64,19 +64,19 @@ export const MENU_ITEMS: MenuItem[] = [
   },
   {
     id: "work",
-    label: "Lich lam viec",
+    label: "Work",
     icon: CalendarClock,
     children: [
       {
         id: "work-schedules",
-        label: "Lich lam",
+        label: "Work Schedules",
         icon: CalendarClock,
         path: ROUTES.WORK_SCHEDULES,
         requiredPermissions: [PERMISSIONS.WORK_SCHEDULE_READ],
       },
       {
         id: "shift-types",
-        label: "Ca lam",
+        label: "Shift Types",
         icon: CalendarClock,
         path: ROUTES.SHIFT_TYPES,
         requiredPermissions: [PERMISSIONS.WORK_SCHEDULE_CREATE],
