@@ -12,6 +12,7 @@ import {
 } from "@/services/equipmentService";
 import { getAllCinemas, type Cinema } from "@/services/cinemaService";
 import EquipmentListDetail from "./EquipmentListDetail";
+import { useAuthStore } from "@/stores";
 
 interface Room {
   id: string;
@@ -20,6 +21,7 @@ interface Room {
 }
 
 export function EquipmentList() {
+  const { user } = useAuthStore();
   const [cinemas, setCinemas] = useState<Cinema[]>([]);
   const [selectedCinema, setSelectedCinema] = useState<Cinema | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -28,11 +30,45 @@ export function EquipmentList() {
   const [roomEquipment, setRoomEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isManager, setIsManager] = useState(false);
 
   useEffect(() => {
-    fetchCinemas();
+    // Check if user is a manager (has cinemaId)
+    if (user?.cinemaId) {
+      setIsManager(true);
+      // Auto-select the manager's cinema
+      autoSelectManagerCinema();
+    } else {
+      setIsManager(false);
+      fetchCinemas();
+    }
     fetchCategories();
-  }, []);
+  }, [user]);
+
+  const autoSelectManagerCinema = async () => {
+    if (!user?.cinemaId) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      // Fetch all cinemas to get the cinema object
+      const response = await getAllCinemas();
+      const allCinemas = response.data?.result || [];
+      const managerCinema = allCinemas.find((c: Cinema) => c.id === user.cinemaId);
+      
+      if (managerCinema) {
+        setSelectedCinema(managerCinema);
+        await fetchRooms(managerCinema.id);
+      } else {
+        setError("Your assigned cinema was not found.");
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to load your cinema");
+      console.error("Error loading manager cinema:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchCinemas = async () => {
     try {
@@ -143,16 +179,18 @@ export function EquipmentList() {
   if (selectedCinema) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            onClick={handleBackToCinemas}
-            variant="ghost"
-            className="text-blue-600 hover:text-blue-800"
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Back to Cinemas
-          </Button>
-        </div>
+        {!isManager && (
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={handleBackToCinemas}
+              variant="ghost"
+              className="text-blue-600 hover:text-blue-800"
+            >
+              <ChevronLeft className="h-4 w-4 mr-2" />
+              Back to Cinemas
+            </Button>
+          </div>
+        )}
 
         <Card className="p-6">
           <h2 className="text-2xl font-semibold mb-6">{selectedCinema.name} - Screening Rooms</h2>
@@ -170,18 +208,18 @@ export function EquipmentList() {
               No rooms found. Please add rooms first.
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {rooms.map((room) => (
                 <div
                   key={room.id}
                   onClick={() => handleRoomClick(room)}
-                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-blue-50 cursor-pointer transition"
+                  className="flex items-center justify-between p-5 bg-white border-2 border-gray-300 rounded-xl hover:border-blue-500 hover:shadow-lg cursor-pointer transition-all duration-200 hover:scale-[1.02]"
                 >
                   <div>
-                    <h3 className="font-semibold text-lg">{room.name}</h3>
+                    <h3 className="font-semibold text-lg text-gray-800">{room.name}</h3>
                     <p className="text-sm text-gray-500">Click to manage equipment</p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                  <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-blue-500" />
                 </div>
               ))}
             </div>
@@ -215,15 +253,15 @@ export function EquipmentList() {
             No cinemas found. Please add cinemas first.
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {cinemas.map((cinema) => (
               <div
                 key={cinema.id}
                 onClick={() => handleCinemaSelect(cinema)}
-                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-blue-50 cursor-pointer transition"
+                className="flex items-center justify-between p-5 bg-white border-2 border-gray-300 rounded-xl hover:border-blue-500 hover:shadow-lg cursor-pointer transition-all duration-200 hover:scale-[1.02]"
               >
                 <div>
-                  <h3 className="font-semibold text-lg">{cinema.name}</h3>
+                  <h3 className="font-semibold text-lg text-gray-800">{cinema.name}</h3>
                   <p className="text-sm text-gray-500">Click to view rooms</p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-gray-400" />
